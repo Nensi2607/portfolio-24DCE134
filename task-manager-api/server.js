@@ -1,5 +1,6 @@
 const express = require("express");
 const mongoose = require("mongoose");
+const cors = require("cors");
 require("dotenv").config();
 
 const Task = require("./models/Task");
@@ -13,7 +14,9 @@ if (!process.env.MONGO_URI) {
 }
 
 // Middleware to read JSON data
+app.use(cors());
 app.use(express.json());
+
 
 // Logging middleware
 app.use((req, res, next) => {
