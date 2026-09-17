@@ -5,19 +5,15 @@ require("dotenv").config();
 const Task = require("./models/Task");
 
 const app = express();
+const port = process.env.PORT || 5000;
+
+if (!process.env.MONGO_URI) {
+    console.error("MONGO_URI is not configured in .env");
+    process.exit(1);
+}
 
 // Middleware to read JSON data
 app.use(express.json());
-
-// MongoDB connection
-mongoose
-    .connect(process.env.MONGO_URI)
-    .then(() => {
-        console.log("MongoDB connected");
-    })
-    .catch((err) => {
-        console.log("MongoDB connection error:", err);
-    });
 
 // Logging middleware
 app.use((req, res, next) => {
@@ -141,7 +137,16 @@ app.use((err, req, res, next) => {
     });
 });
 
-// Start server
-app.listen(5000, () => {
-    console.log("Server running on port 5000");
-});
+// Connect before accepting requests so routes cannot run without a database.
+mongoose
+    .connect(process.env.MONGO_URI)
+    .then(() => {
+        console.log("MongoDB connected");
+        app.listen(port, () => {
+            console.log(`Server running on port ${port}`);
+        });
+    })
+    .catch((err) => {
+        console.error("MongoDB connection error:", err.message);
+        process.exit(1);
+    });
