@@ -1,10 +1,58 @@
 const BASE_URL = "http://localhost:5000";
 
-export const getTasks = async () => {
-    const response = await fetch(`${BASE_URL}/tasks`);
+const getAuthHeaders = () => {
+    const token = localStorage.getItem("taskManagerToken");
+
+    return {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+    };
+};
+
+export const registerUser = async (email, password) => {
+    const response = await fetch(`${BASE_URL}/register`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ email, password })
+    });
+
+    const data = await response.json();
 
     if (!response.ok) {
-        throw new Error("Failed to fetch tasks");
+        throw new Error(data.error || "Registration failed");
+    }
+
+    return data;
+};
+
+export const loginUser = async (email, password) => {
+    const response = await fetch(`${BASE_URL}/login`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ email, password })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        throw new Error(data.error || "Login failed");
+    }
+
+    return data;
+};
+
+export const getTasks = async () => {
+    const response = await fetch(`${BASE_URL}/tasks`, {
+        headers: getAuthHeaders()
+    });
+
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to fetch tasks");
     }
 
     return response.json();
@@ -13,9 +61,7 @@ export const getTasks = async () => {
 export const createTask = async (task) => {
     const response = await fetch(`${BASE_URL}/tasks`, {
         method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify(task)
     });
 
@@ -30,9 +76,7 @@ export const createTask = async (task) => {
 export const updateTask = async (id, task) => {
     const response = await fetch(`${BASE_URL}/tasks/${id}`, {
         method: "PUT",
-        headers: {
-            "Content-Type": "application/json"
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify(task)
     });
 
@@ -46,7 +90,8 @@ export const updateTask = async (id, task) => {
 
 export const deleteTask = async (id) => {
     const response = await fetch(`${BASE_URL}/tasks/${id}`, {
-        method: "DELETE"
+        method: "DELETE",
+        headers: getAuthHeaders()
     });
 
     if (!response.ok) {

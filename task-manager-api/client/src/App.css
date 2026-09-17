@@ -9,6 +9,85 @@ body {
     min-height: 100vh;
 }
 
+.auth-screen {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: linear-gradient(135deg, #eff6ff, #f8fafc);
+}
+
+.auth-card {
+    width: 100%;
+    max-width: 430px;
+    background: white;
+    border-radius: 18px;
+    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.12);
+    padding: 32px 24px;
+}
+
+.auth-card h1 {
+    margin: 0 0 8px;
+    text-align: center;
+    font-size: 2rem;
+}
+
+.auth-subtitle {
+    margin: 0 0 24px;
+    text-align: center;
+    color: #64748b;
+}
+
+.auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.auth-field {
+    width: 100%;
+    padding: 14px 15px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    font-size: 16px;
+    box-sizing: border-box;
+}
+
+.auth-btn {
+    width: 100%;
+    margin-top: 8px;
+}
+
+.auth-toggle {
+    margin-top: 18px;
+    text-align: center;
+    color: #475569;
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.link-btn {
+    border: none;
+    background: transparent;
+    color: #2563eb;
+    font-weight: bold;
+    cursor: pointer;
+    padding: 0;
+}
+
+.logout-btn {
+    border: none;
+    border-radius: 8px;
+    background: #ef4444;
+    color: white;
+    padding: 10px 16px;
+    cursor: pointer;
+    margin-top: 12px;
+}
+
 .app {
     min-height: 100vh;
     padding: 50px 20px;

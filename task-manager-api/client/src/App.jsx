@@ -5,23 +5,32 @@ import {
     getTasks,
     createTask,
     updateTask,
-    deleteTask
+    deleteTask,
+    registerUser,
+    loginUser
 } from "./api";
 
 function App() {
+    const [token, setToken] = useState(localStorage.getItem("taskManagerToken") || "");
+    const [authMode, setAuthMode] = useState("login");
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [confirmPassword, setConfirmPassword] = useState("");
     const [tasks, setTasks] = useState([]);
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
 
-    // GET tasks
+    const isAuthenticated = Boolean(token);
+
     useEffect(() => {
+        if (!token) return;
+
         const load = async () => {
             try {
                 setLoading(true);
                 setError("");
-
                 const data = await getTasks();
                 setTasks(data);
             } catch (err) {
@@ -32,9 +41,50 @@ function App() {
         };
 
         load();
-    }, []);
+    }, [token]);
 
-    // POST task
+    const handleAuthSubmit = async (e) => {
+        e.preventDefault();
+
+        if (!email.trim() || !password.trim()) {
+            setError("Email and password are required");
+            return;
+        }
+
+        try {
+            setError("");
+
+            if (authMode === "register") {
+                if (password !== confirmPassword) {
+                    setError("Passwords do not match");
+                    return;
+                }
+
+                await registerUser(email, password);
+                setAuthMode("login");
+                setError("Registration successful. Please log in.");
+                setPassword("");
+                setConfirmPassword("");
+                return;
+            }
+
+            const data = await loginUser(email, password);
+            localStorage.setItem("taskManagerToken", data.token);
+            setToken(data.token);
+            setPassword("");
+            setConfirmPassword("");
+        } catch (err) {
+            setError(err.message);
+        }
+    };
+
+    const handleLogout = () => {
+        localStorage.removeItem("taskManagerToken");
+        setToken("");
+        setTasks([]);
+        setError("");
+    };
+
     const handleCreate = async (e) => {
         e.preventDefault();
 
@@ -45,70 +95,114 @@ function App() {
 
         try {
             setError("");
-
-            const newTask = await createTask({
-                title,
-                description
-            });
-
+            const newTask = await createTask({ title, description });
             setTasks((prev) => [...prev, newTask]);
-
             setTitle("");
             setDescription("");
-
-            alert("Task created successfully");
         } catch (err) {
             setError(err.message);
         }
     };
 
-    // PUT task
     const handleUpdate = async (task) => {
         try {
             setError("");
-
             const updatedTask = await updateTask(task._id, {
                 completed: !task.completed
             });
 
             setTasks((prev) =>
                 prev.map((item) =>
-                    item._id === updatedTask._id
-                        ? updatedTask
-                        : item
+                    item._id === updatedTask._id ? updatedTask : item
                 )
             );
-
-            alert("Task updated successfully");
         } catch (err) {
             setError(err.message);
         }
     };
 
-    // DELETE task
     const handleDelete = async (id) => {
-        const confirmed = window.confirm(
-            "Are you sure you want to delete this task?"
-        );
+        const confirmed = window.confirm("Are you sure you want to delete this task?");
 
-        if (!confirmed) {
-            return;
-        }
+        if (!confirmed) return;
 
         try {
             setError("");
-
             await deleteTask(id);
-
-            setTasks((prev) =>
-                prev.filter((task) => task._id !== id)
-            );
-
-            alert("Task deleted successfully");
+            setTasks((prev) => prev.filter((task) => task._id !== id));
         } catch (err) {
             setError(err.message);
         }
     };
+
+    if (!isAuthenticated) {
+        return (
+            <div className="auth-screen">
+                <div className="auth-card">
+                    <h1>{authMode === "login" ? "Welcome back" : "Create account"}</h1>
+                    <p className="auth-subtitle">
+                        {authMode === "login"
+                            ? "Sign in to manage your tasks."
+                            : "Register to start managing tasks."}
+                    </p>
+
+                    {error && <p className="error">{error}</p>}
+
+                    <form className="auth-form" onSubmit={handleAuthSubmit}>
+                        <input
+                            className="auth-field"
+                            type="email"
+                            placeholder="Email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                        />
+
+                        <input
+                            className="auth-field"
+                            type="password"
+                            placeholder="Password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                        />
+
+                        {authMode === "register" && (
+                            <input
+                                className="auth-field"
+                                type="password"
+                                placeholder="Confirm password"
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                            />
+                        )}
+
+                        <button type="submit" className="add-btn auth-btn">
+                            {authMode === "login" ? "Login" : "Register"}
+                        </button>
+                    </form>
+
+                    <div className="auth-toggle">
+                        <span>
+                            {authMode === "login"
+                                ? "Need an account?"
+                                : "Already have an account?"}
+                        </span>
+                        <button
+                            type="button"
+                            className="link-btn"
+                            onClick={() => {
+                                setAuthMode(authMode === "login" ? "register" : "login");
+                                setError("");
+                                setPassword("");
+                                setConfirmPassword("");
+                            }}
+                        >
+                            {authMode === "login" ? "Register" : "Login"}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="app">
@@ -116,6 +210,9 @@ function App() {
                 <header className="header">
                     <h1>Task Manager</h1>
                     <p>Stay organized and keep track of your work.</p>
+                    <button type="button" className="logout-btn" onClick={handleLogout}>
+                        Logout
+                    </button>
                 </header>
 
                 <section className="form-card">
@@ -133,9 +230,7 @@ function App() {
                             type="text"
                             placeholder="Description"
                             value={description}
-                            onChange={(e) =>
-                                setDescription(e.target.value)
-                            }
+                            onChange={(e) => setDescription(e.target.value)}
                         />
 
                         <button className="add-btn" type="submit">
@@ -161,9 +256,7 @@ function App() {
                     {tasks.map((task) => (
                         <div
                             key={task._id}
-                            className={`task-card ${
-                                task.completed ? "completed" : ""
-                            }`}
+                            className={`task-card ${task.completed ? "completed" : ""}`}
                         >
                             <div className="task-top">
                                 <div>
@@ -174,9 +267,7 @@ function App() {
                                 </div>
 
                                 <span
-                                    className={`status ${
-                                        task.completed ? "completed" : "pending"
-                                    }`}
+                                    className={`status ${task.completed ? "completed" : "pending"}`}
                                 >
                                     {task.completed ? "Completed" : "Pending"}
                                 </span>
@@ -188,9 +279,7 @@ function App() {
                                     className="update-btn"
                                     onClick={() => handleUpdate(task)}
                                 >
-                                    {task.completed
-                                        ? "Mark Pending"
-                                        : "Mark Completed"}
+                                    {task.completed ? "Mark Pending" : "Mark Completed"}
                                 </button>
 
                                 <button
