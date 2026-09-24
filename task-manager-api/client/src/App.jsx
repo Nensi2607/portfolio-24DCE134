@@ -1,6 +1,7 @@
-
 import "./App.css";
-import { useEffect, useState } from "react";
+import { useEffect, useState, lazy, Suspense } from "react";
+import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
+
 import {
     getTasks,
     createTask,
@@ -10,8 +11,13 @@ import {
     loginUser
 } from "./api";
 
+const Projects = lazy(() => import("./pages/Projects"));
+const Contact = lazy(() => import("./pages/Contact"));
+
 function App() {
-    const [token, setToken] = useState(localStorage.getItem("taskManagerToken") || "");
+    const [token, setToken] = useState(
+        localStorage.getItem("taskManagerToken") || ""
+    );
     const [authMode, setAuthMode] = useState("login");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -107,6 +113,7 @@ function App() {
     const handleUpdate = async (task) => {
         try {
             setError("");
+
             const updatedTask = await updateTask(task._id, {
                 completed: !task.completed
             });
@@ -122,14 +129,18 @@ function App() {
     };
 
     const handleDelete = async (id) => {
-        const confirmed = window.confirm("Are you sure you want to delete this task?");
+        const confirmed = window.confirm(
+            "Are you sure you want to delete this task?"
+        );
 
         if (!confirmed) return;
 
         try {
             setError("");
             await deleteTask(id);
-            setTasks((prev) => prev.filter((task) => task._id !== id));
+            setTasks((prev) =>
+                prev.filter((task) => task._id !== id)
+            );
         } catch (err) {
             setError(err.message);
         }
@@ -139,7 +150,12 @@ function App() {
         return (
             <div className="auth-screen">
                 <div className="auth-card">
-                    <h1>{authMode === "login" ? "Welcome back" : "Create account"}</h1>
+                    <h1>
+                        {authMode === "login"
+                            ? "Welcome back"
+                            : "Create account"}
+                    </h1>
+
                     <p className="auth-subtitle">
                         {authMode === "login"
                             ? "Sign in to manage your tasks."
@@ -148,13 +164,18 @@ function App() {
 
                     {error && <p className="error">{error}</p>}
 
-                    <form className="auth-form" onSubmit={handleAuthSubmit}>
+                    <form
+                        className="auth-form"
+                        onSubmit={handleAuthSubmit}
+                    >
                         <input
                             className="auth-field"
                             type="email"
                             placeholder="Email"
                             value={email}
-                            onChange={(e) => setEmail(e.target.value)}
+                            onChange={(e) =>
+                                setEmail(e.target.value)
+                            }
                         />
 
                         <input
@@ -162,7 +183,9 @@ function App() {
                             type="password"
                             placeholder="Password"
                             value={password}
-                            onChange={(e) => setPassword(e.target.value)}
+                            onChange={(e) =>
+                                setPassword(e.target.value)
+                            }
                         />
 
                         {authMode === "register" && (
@@ -171,12 +194,19 @@ function App() {
                                 type="password"
                                 placeholder="Confirm password"
                                 value={confirmPassword}
-                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                onChange={(e) =>
+                                    setConfirmPassword(e.target.value)
+                                }
                             />
                         )}
 
-                        <button type="submit" className="add-btn auth-btn">
-                            {authMode === "login" ? "Login" : "Register"}
+                        <button
+                            type="submit"
+                            className="add-btn auth-btn"
+                        >
+                            {authMode === "login"
+                                ? "Login"
+                                : "Register"}
                         </button>
                     </form>
 
@@ -186,17 +216,24 @@ function App() {
                                 ? "Need an account?"
                                 : "Already have an account?"}
                         </span>
+
                         <button
                             type="button"
                             className="link-btn"
                             onClick={() => {
-                                setAuthMode(authMode === "login" ? "register" : "login");
+                                setAuthMode(
+                                    authMode === "login"
+                                        ? "register"
+                                        : "login"
+                                );
                                 setError("");
                                 setPassword("");
                                 setConfirmPassword("");
                             }}
                         >
-                            {authMode === "login" ? "Register" : "Login"}
+                            {authMode === "login"
+                                ? "Register"
+                                : "Login"}
                         </button>
                     </div>
                 </div>
@@ -205,96 +242,189 @@ function App() {
     }
 
     return (
-        <div className="app">
-            <div className="container">
-                <header className="header">
-                    <h1>Task Manager</h1>
-                    <p>Stay organized and keep track of your work.</p>
-                    <button type="button" className="logout-btn" onClick={handleLogout}>
-                        Logout
-                    </button>
-                </header>
+        <BrowserRouter>
+            <div className="app">
 
-                <section className="form-card">
-                    <h2>Add a new task</h2>
+                {/* Navigation */}
+                <nav className="nav">
+                    <Link to="/">Tasks</Link>
+                    <Link to="/projects">Projects</Link>
+                    <Link to="/contact">Contact</Link>
+                </nav>
 
-                    <form className="task-form" onSubmit={handleCreate}>
-                        <input
-                            type="text"
-                            placeholder="Task title"
-                            value={title}
-                            onChange={(e) => setTitle(e.target.value)}
-                        />
-
-                        <input
-                            type="text"
-                            placeholder="Description"
-                            value={description}
-                            onChange={(e) => setDescription(e.target.value)}
-                        />
-
-                        <button className="add-btn" type="submit">
-                            Add Task
-                        </button>
-                    </form>
-                </section>
-
-                {loading && <p className="loading">Loading tasks...</p>}
-
-                {error && <p className="error">{error}</p>}
-
-                <div className="tasks-header">
-                    <h2>Tasks</h2>
-                    <span className="task-count">{tasks.length} tasks</span>
-                </div>
-
-                {tasks.length === 0 && !loading && (
-                    <div className="empty">No tasks found.</div>
-                )}
-
-                <div className="task-list">
-                    {tasks.map((task) => (
-                        <div
-                            key={task._id}
-                            className={`task-card ${task.completed ? "completed" : ""}`}
-                        >
-                            <div className="task-top">
-                                <div>
-                                    <h3 className="task-title">{task.title}</h3>
-                                    <p className="task-description">
-                                        {task.description || "No description provided."}
-                                    </p>
-                                </div>
-
-                                <span
-                                    className={`status ${task.completed ? "completed" : "pending"}`}
-                                >
-                                    {task.completed ? "Completed" : "Pending"}
-                                </span>
-                            </div>
-
-                            <div className="task-actions">
-                                <button
-                                    type="button"
-                                    className="update-btn"
-                                    onClick={() => handleUpdate(task)}
-                                >
-                                    {task.completed ? "Mark Pending" : "Mark Completed"}
-                                </button>
-
-                                <button
-                                    type="button"
-                                    className="delete-btn"
-                                    onClick={() => handleDelete(task._id)}
-                                >
-                                    Delete
-                                </button>
-                            </div>
+                {/* Lazy-loaded routes */}
+                <Suspense
+                    fallback={
+                        <div className="loading">
+                            Loading page...
                         </div>
-                    ))}
-                </div>
+                    }
+                >
+                    <Routes>
+                        <Route
+                            path="/projects"
+                            element={<Projects />}
+                        />
+
+                        <Route
+                            path="/contact"
+                            element={<Contact />}
+                        />
+
+                        <Route
+                            path="/"
+                            element={
+                                <div className="container">
+
+                                    <header className="header">
+                                        <h1>Task Manager</h1>
+
+                                        <p>
+                                            Stay organized and keep track
+                                            of your work.
+                                        </p>
+
+                                        <button
+                                            type="button"
+                                            className="logout-btn"
+                                            onClick={handleLogout}
+                                        >
+                                            Logout
+                                        </button>
+                                    </header>
+
+                                    <section className="form-card">
+                                        <h2>Add a new task</h2>
+
+                                        <form
+                                            className="task-form"
+                                            onSubmit={handleCreate}
+                                        >
+                                            <input
+                                                type="text"
+                                                placeholder="Task title"
+                                                value={title}
+                                                onChange={(e) =>
+                                                    setTitle(e.target.value)
+                                                }
+                                            />
+
+                                            <input
+                                                type="text"
+                                                placeholder="Description"
+                                                value={description}
+                                                onChange={(e) =>
+                                                    setDescription(
+                                                        e.target.value
+                                                    )
+                                                }
+                                            />
+
+                                            <button
+                                                className="add-btn"
+                                                type="submit"
+                                            >
+                                                Add Task
+                                            </button>
+                                        </form>
+                                    </section>
+
+                                    {loading && (
+                                        <p className="loading">
+                                            Loading tasks...
+                                        </p>
+                                    )}
+
+                                    {error && (
+                                        <p className="error">
+                                            {error}
+                                        </p>
+                                    )}
+
+                                    <div className="tasks-header">
+                                        <h2>Tasks</h2>
+
+                                        <span className="task-count">
+                                            {tasks.length} tasks
+                                        </span>
+                                    </div>
+
+                                    {tasks.length === 0 && !loading && (
+                                        <div className="empty">
+                                            No tasks found.
+                                        </div>
+                                    )}
+
+                                    <div className="task-list">
+                                        {tasks.map((task) => (
+                                            <div
+                                                key={task._id}
+                                                className={`task-card ${
+                                                    task.completed
+                                                        ? "completed"
+                                                        : ""
+                                                }`}
+                                            >
+                                                <div className="task-top">
+                                                    <div>
+                                                        <h3 className="task-title">
+                                                            {task.title}
+                                                        </h3>
+
+                                                        <p className="task-description">
+                                                            {task.description ||
+                                                                "No description provided."}
+                                                        </p>
+                                                    </div>
+
+                                                    <span
+                                                        className={`status ${
+                                                            task.completed
+                                                                ? "completed"
+                                                                : "pending"
+                                                        }`}
+                                                    >
+                                                        {task.completed
+                                                            ? "Completed"
+                                                            : "Pending"}
+                                                    </span>
+                                                </div>
+
+                                                <div className="task-actions">
+                                                    <button
+                                                        type="button"
+                                                        className="update-btn"
+                                                        onClick={() =>
+                                                            handleUpdate(task)
+                                                        }
+                                                    >
+                                                        {task.completed
+                                                            ? "Mark Pending"
+                                                            : "Mark Completed"}
+                                                    </button>
+
+                                                    <button
+                                                        type="button"
+                                                        className="delete-btn"
+                                                        onClick={() =>
+                                                            handleDelete(
+                                                                task._id
+                                                            )
+                                                        }
+                                                    >
+                                                        Delete
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            }
+                        />
+                    </Routes>
+                </Suspense>
             </div>
-        </div>
+        </BrowserRouter>
     );
 }
 
