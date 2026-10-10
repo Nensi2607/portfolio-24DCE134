@@ -2,6 +2,7 @@ const validateTask = require("./middleware/validateTask");
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
+const cache = require("./cache/cache");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
@@ -26,6 +27,7 @@ if (!process.env.JWT_SECRET) {
 // ====================
 // MIDDLEWARE
 // ====================
+
 app.use(cors());
 app.use(express.json());
 
@@ -41,6 +43,7 @@ app.use((req, res, next) => {
 // ====================
 // REGISTER
 // ====================
+
 app.post("/register", async (req, res, next) => {
     try {
         const { email, password } = req.body;
@@ -81,6 +84,7 @@ app.post("/register", async (req, res, next) => {
 // ====================
 // LOGIN
 // ====================
+
 app.post("/login", async (req, res, next) => {
     try {
         const { email, password } = req.body;
@@ -99,7 +103,10 @@ app.post("/login", async (req, res, next) => {
             });
         }
 
-        const isMatch = await bcrypt.compare(password, user.password);
+        const isMatch = await bcrypt.compare(
+            password,
+            user.password
+        );
 
         if (!isMatch) {
             return res.status(401).json({
@@ -125,19 +132,20 @@ app.post("/login", async (req, res, next) => {
 // ====================
 // GET ALL TASKS
 // ====================
-app.get("/tasks", auth, async (req, res, next) => {
-    try {
-        const tasks = await Task.find();
 
-        res.status(200).json(tasks);
-    } catch (err) {
-        next(err);
-    }
+app.get("/tasks", auth, async (req, res, next) => {
+  try {
+    const tasks = await Task.find();
+    res.status(200).json(tasks);
+  } catch (err) {
+    next(err);
+  }
 });
 
 // ====================
 // CREATE TASK
 // ====================
+
 app.post("/tasks", auth, validateTask, async (req, res, next) => {
     try {
         const task = await Task.create({
@@ -145,6 +153,9 @@ app.post("/tasks", auth, validateTask, async (req, res, next) => {
             description: req.body.description,
             completed: req.body.completed
         });
+
+        // Invalidate cache after successful write
+        cache.del("all_tasks");
 
         res.status(201).json(task);
     } catch (err) {
@@ -155,6 +166,7 @@ app.post("/tasks", auth, validateTask, async (req, res, next) => {
 // ====================
 // UPDATE TASK
 // ====================
+
 app.put("/tasks/:id", auth, async (req, res, next) => {
     try {
         const task = await Task.findByIdAndUpdate(
@@ -172,6 +184,9 @@ app.put("/tasks/:id", auth, async (req, res, next) => {
             });
         }
 
+        // Invalidate cache only after successful update
+        cache.del("all_tasks");
+
         res.status(200).json(task);
     } catch (err) {
         next(err);
@@ -181,15 +196,21 @@ app.put("/tasks/:id", auth, async (req, res, next) => {
 // ====================
 // DELETE TASK
 // ====================
+
 app.delete("/tasks/:id", auth, async (req, res, next) => {
     try {
-        const task = await Task.findByIdAndDelete(req.params.id);
+        const task = await Task.findByIdAndDelete(
+            req.params.id
+        );
 
         if (!task) {
             return res.status(404).json({
                 error: "Task not found"
             });
         }
+
+        // Invalidate cache after successful delete
+        cache.del("all_tasks");
 
         res.status(200).json(task);
     } catch (err) {
@@ -200,6 +221,7 @@ app.delete("/tasks/:id", auth, async (req, res, next) => {
 // ====================
 // 404 HANDLER
 // ====================
+
 app.use((req, res) => {
     res.status(404).json({
         error: "Route not found"
@@ -209,6 +231,7 @@ app.use((req, res) => {
 // ====================
 // GLOBAL ERROR HANDLER
 // ====================
+
 app.use((err, req, res, next) => {
     console.error(err);
 
@@ -238,6 +261,7 @@ app.use((err, req, res, next) => {
 // ====================
 // MONGODB CONNECTION
 // ====================
+
 mongoose
     .connect(process.env.MONGO_URI)
     .then(() => {
