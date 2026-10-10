@@ -135,7 +135,16 @@ app.post("/login", async (req, res, next) => {
 
 app.get("/tasks", auth, async (req, res, next) => {
   try {
+    const cached = cache.get("all_tasks");
+
+    if (cached) {
+      return res.status(200).json(cached);
+    }
+
     const tasks = await Task.find();
+
+    cache.set("all_tasks", tasks);
+
     res.status(200).json(tasks);
   } catch (err) {
     next(err);
