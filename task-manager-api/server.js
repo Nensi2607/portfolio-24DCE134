@@ -1,3 +1,4 @@
+
 const validateTask = require("./middleware/validateTask");
 const express = require("express");
 const mongoose = require("mongoose");
@@ -6,6 +7,9 @@ const cache = require("./cache/cache");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
+
+const taskEvents = require("./events");
+require("./listeners");
 
 const Task = require("./models/Task");
 const User = require("./models/User");
@@ -31,12 +35,10 @@ if (!process.env.JWT_SECRET) {
 app.use(cors());
 app.use(express.json());
 
-// Logging middleware
 app.use((req, res, next) => {
     console.log(
         `${req.method} ${req.url} - ${new Date().toISOString()}`
     );
-
     next();
 });
 
@@ -134,25 +136,25 @@ app.post("/login", async (req, res, next) => {
 // ====================
 
 app.get("/tasks", auth, async (req, res, next) => {
-  try {
-    const cached = cache.get("all_tasks");
+    try {
+        const cached = cache.get("all_tasks");
 
-    if (cached) {
-      return res.status(200).json(cached);
+        if (cached) {
+            return res.status(200).json(cached);
+        }
+
+        const tasks = await Task.find();
+
+        cache.set("all_tasks", tasks);
+
+        res.status(200).json(tasks);
+    } catch (err) {
+        next(err);
     }
-
-    const tasks = await Task.find();
-
-    cache.set("all_tasks", tasks);
-
-    res.status(200).json(tasks);
-  } catch (err) {
-    next(err);
-  }
 });
 
 // ====================
-// CREATE TASK
+// CREATE TASK + EVENT
 // ====================
 
 app.post("/tasks", auth, validateTask, async (req, res, next) => {
@@ -163,10 +165,22 @@ app.post("/tasks", auth, validateTask, async (req, res, next) => {
             completed: req.body.completed
         });
 
-        // Invalidate cache after successful write
         cache.del("all_tasks");
 
+        console.log(
+            "[API] Response sent at",
+            new Date().toISOString()
+        );
+
         res.status(201).json(task);
+
+        setImmediate(() => {
+            try {
+                taskEvents.emit("task-created", task);
+            } catch (err) {
+                taskEvents.emit("error", err);
+            }
+        });
     } catch (err) {
         next(err);
     }
@@ -193,7 +207,6 @@ app.put("/tasks/:id", auth, async (req, res, next) => {
             });
         }
 
-        // Invalidate cache only after successful update
         cache.del("all_tasks");
 
         res.status(200).json(task);
@@ -203,7 +216,7 @@ app.put("/tasks/:id", auth, async (req, res, next) => {
 });
 
 // ====================
-// DELETE TASK
+// DELETE TASK + EVENT
 // ====================
 
 app.delete("/tasks/:id", auth, async (req, res, next) => {
@@ -218,10 +231,17 @@ app.delete("/tasks/:id", auth, async (req, res, next) => {
             });
         }
 
-        // Invalidate cache after successful delete
         cache.del("all_tasks");
 
         res.status(200).json(task);
+
+        setImmediate(() => {
+            try {
+                taskEvents.emit("task-deleted", task);
+            } catch (err) {
+                taskEvents.emit("error", err);
+            }
+        });
     } catch (err) {
         next(err);
     }
@@ -244,24 +264,21 @@ app.use((req, res) => {
 app.use((err, req, res, next) => {
     console.error(err);
 
-    // Mongoose validation error
     if (err.name === "ValidationError") {
         return res.status(400).json({
             error: "Validation failed",
             details: Object.values(err.errors).map(
-                (error) => error.message
+                error => error.message
             )
         });
     }
 
-    // Invalid MongoDB ID
     if (err.name === "CastError") {
         return res.status(400).json({
             error: "Invalid task ID"
         });
     }
 
-    // Other errors
     res.status(500).json({
         error: "Something went wrong"
     });
@@ -280,7 +297,7 @@ mongoose
             console.log(`Server running on port ${port}`);
         });
     })
-    .catch((err) => {
+    .catch(err => {
         console.error(
             "MongoDB connection error:",
             err.message
