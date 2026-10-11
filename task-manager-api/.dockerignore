@@ -1,0 +1,6 @@
+text
+node_modules
+client
+.env
+.git
+npm-debug.log
